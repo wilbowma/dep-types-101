@@ -5,20 +5,57 @@
 (module+ test
   (require rackunit))
 
-(define-language ttL
-  (e t ::= x (λ (x : t) e) (e e) (Π (x : t) t) (Type i))
+(define-language ittL
+  (e t ::= x (λ (x : t) e) (e e) (Π (x : t) t) (Type i) (induction x (Type i)))
   (x   ::= variable-not-otherwise-mentioned)
   (i j ::= natural)
+  (Δ   ::= ∅ (Δ (x : t ((c : t) ...))))
   #:binding-forms
   (λ (x : t) e #:refers-to x)
   (Π (x : t) e #:refers-to x))
 
-(define-extended-language tt-reduceL ttL
+(define-metafunction ttL
+  Δ-ref-type : Δ x -> t or #f
+  [(Δ-ref-type ∅ x) #f]
+  [(Δ-ref-type (Δ (x : t any)) x) t]
+  [(Δ-ref-type (Δ (x_0 : t_0 any)) x) (Δ-ref-type Δ x)])
+
+(define-metafunction ttL
+  Δ-ref-constructor-map : Δ x -> ((x : t) ...) or #f
+  ;; NB: Depends on clause order
+  [(Δ-ref-constructor-map ∅ x_D) #f]
+  [(Δ-ref-constructor-map (Δ (x_D : t_D any)) x_D)
+   any]
+  [(Δ-ref-constructor-map (Δ (x_1 : t_1 any)) x_D)
+   (Δ-ref-constructor-map Δ x_D)])
+
+(define-metafunction ttL
+  Δ-ref-constructors : Δ x -> (x ...) or #f
+  [(Δ-ref-constructors Δ x_D)
+   (x ...)
+   (where ((x : t) ...) (Δ-ref-constructor-map Δ x_D))])
+
+(define-metafunction ttL
+  Δ-ref-constructor-type : Δ x x -> t or #f
+  [(Δ-ref-constructor-type Δ x_D x)
+   t
+   (where ((x_1 : t_1) ... (x : t) (x_2 : t_2) ...)
+          (Δ-ref-constructor-map Δ x_D))]
+  [(Δ-ref-constructor-type Δ x_D x) #f])
+
+(define-metafunction ttL
+  Δ-key-by-constructor : Δ x -> x
+  [(Δ-key-by-constructor (Δ (x : t ((x_0 : t_0) ... (x_c : t_c) (x_1 : t_1) ...))) x_c)
+   x]
+  [(Δ-key-by-constructor (Δ (x_1 : t_1 any)) x)
+   (Δ-key-by-constructor Δ x)])
+
+(define-extended-language itt-reduceL ittL
   (C ::= hole (λ (x : C) e) (λ (x : e) C) (C e) (e C) (Π (x : C) e) (Π (x : e) C))
   ;; Can redex handle the nondeterminism?!
   #;(C ::= hole (λ (x : C) e) (λ (x : v) C) (C e) (v C) (Π (x : C) e) (Π (x : v) C))
-  #;(v ::= (Type i) (λ (x : v) v) (Π (x : v) v) c)
-  #;(c ::= x (c v)))
+  #;(v ::= (Type i)  (λ (x : v) v) (Π (x : v) v) c)
+  #;(c ::= x (induction x (Type i)) (c v)))
 
 (define-metafunction tt-reduceL
   [(subst e x_0 e_0)
