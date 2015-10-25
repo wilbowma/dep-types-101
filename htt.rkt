@@ -5,6 +5,8 @@
 (module+ test
   (require rackunit))
 
+;; TODO: Start from ittL
+
 (define-language ttL
   (e t ::= x (λ (x : t) e) (e e) (Π (x : t) t) (Type i))
   (x   ::= variable-not-otherwise-mentioned)
