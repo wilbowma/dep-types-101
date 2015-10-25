@@ -2,8 +2,7 @@
 
 (require
   redex/reduction-semantics)
-(module+ test
-  (require rackunit))
+(provide (all-defined-out))
 
 (define-language ttL
   (e t ::= x (λ (x : t) e) (e e) (Π (x : t) t) (Type i))
@@ -35,11 +34,6 @@
 (define-metafunction tt-reduceL
   [(reduce e) ,(car (apply-reduction-relation* tt-reduceR (term e)))])
 
-(module+ test
-  (require racket/function)
-  (check (curry alpha-equivalent? tt-reduceL)
-    (term (reduce ((λ (x : (Type 0)) x) z)))
-    (term z)))
 
 (define-judgment-form tt-reduceL
   #:mode (convert I I)
@@ -111,30 +105,10 @@
    -----------------
    (type-check Γ e t)])
 
+;;; --------------------------------------------------------------------------------------------------
+;;; Auxillary defs. Not necessary for the type theory, but helpful for examples
 (define-metafunction tt-typingL
   Γ-build : (x : t) ... -> Γ
   [(Γ-build) ∅]
   [(Γ-build (x_r : t_r) ...  (x : t))
    ((Γ-build (x_r : t_r) ...) x : t)])
-
-(module+ test
-  (check-true
-    (judgment-holds (type-infer ∅ (Type 0) (Type 1))))
-  (check-true
-    (judgment-holds (type-check ∅ (Type 0) (Type 1))))
-  (check-false
-    (judgment-holds (type-check ∅ (Π (x : (Type 0)) (Type 0)) (Type 0))))
-  (check-true
-    (judgment-holds (type-check ∅ (Π (x : (Type 0)) (Type 0)) (Type 1))))
-  (check-false
-    (judgment-holds (type-check ∅ (Π (x : (Type 0)) x) (Type 0))))
-
-
-  (define Γp (term (Γ-build
-                      (Nat : (Type 0))
-                      (z : Nat)
-                      (s : (Π (x : Nat) Nat)))))
-  (check-true
-    (judgment-holds (type-check ,Γp z Nat)))
-  (check-true
-    (judgment-holds (type-check ,Γp (s (s z)) Nat))))
