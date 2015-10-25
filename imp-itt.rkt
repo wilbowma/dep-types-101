@@ -5,8 +5,10 @@
 
 (provide (all-defined-out))
 
-(define-language ittL
-  (e t ::= x (λ (x : t) e) (e e) (Π (x : t) t) (Type i) (induction x (Type i)))
+;; ITT with an impredicative universe Prop
+(define-language imp-ittL
+  (U   ::= Prop (Type i))
+  (e t ::= x (λ (x : t) e) (e e) (Π (x : t) t) U (induction x U))
   (x   ::= variable-not-otherwise-mentioned)
   (i j ::= natural)
   (Δ   ::= ∅ (Δ (x : t ((c : t) ...))))
@@ -72,7 +74,7 @@
   [(Σ-constructor-index Σ x_D x_ci)
    (sequence-index-of x_ci (Σ-ref-constructors Σ x_D))])
 
-(define-extended-language itt-ctxtL ittL
+(define-extended-language imp-itt-ctxtL imp-ittL
   ;; Telescope.
   (Ξ Φ ::= hole (Π (x : t) Ξ))
   ;; Apply context
@@ -80,39 +82,39 @@
   (U   ::= (Type i)))
 
 ;; Return the parameters of x_D as a telescope Ξ
-(define-metafunction itt-ctxtL
+(define-metafunction imp-itt-ctxtL
   Δ-ref-parameter-Ξ : Δ x -> Ξ
   [(Δ-ref-parameter-Ξ (Δ (x_D : (in-hole Ξ U) any)) x_D)
    Ξ]
   [(Δ-ref-parameter-Ξ (Δ (x_1 : t_1 any)) x_D)
    (Δ-ref-parameter-Ξ Δ x_D)])
 
-(define-metafunction itt-ctxtL
+(define-metafunction imp-itt-ctxtL
   Ξ-apply : Ξ t -> t
   [(Ξ-apply hole t) t]
   [(Ξ-apply (Π (x : t) Ξ) t_0) (Ξ-apply Ξ (t_0 x))])
 
 ;; Compose multiple telescopes into a single telescope:
-(define-metafunction itt-ctxtL
+(define-metafunction imp-itt-ctxtL
   Ξ-compose : Ξ Ξ ... -> Ξ
   [(Ξ-compose Ξ) Ξ]
   [(Ξ-compose Ξ_0 Ξ_1 Ξ_rest ...)
    (Ξ-compose (in-hole Ξ_0 Ξ_1) Ξ_rest ...)])
 
 ;; Compute the number of arguments in a Ξ
-(define-metafunction itt-ctxtL
+(define-metafunction imp-itt-ctxtL
   Ξ-length : Ξ -> natural
   [(Ξ-length hole) 0]
   [(Ξ-length (Π (x : t) Ξ)) ,(add1 (term (Ξ-length Ξ)))])
 
 ;; Compute the number of applications in a Θ
-(define-metafunction itt-ctxtL
+(define-metafunction imp-itt-ctxtL
   Θ-length : Θ -> natural
   [(Θ-length hole) 0]
   [(Θ-length (Θ e)) ,(add1 (term (Θ-length Θ)))])
 
 ;; Reference an expression in Θ by index; index 0 corresponds to the the expression applied to a hole.
-(define-metafunction itt-ctxtL
+(define-metafunction imp-itt-ctxtL
   Θ-ref : Θ natural -> e or #f
   [(Θ-ref hole natural) #f]
   [(Θ-ref (in-hole Θ (hole e)) 0) e]
@@ -122,7 +124,7 @@
 ;;; Computing the types of eliminators
 
 ;; Returns the telescope of the arguments for the constructor x_ci of the inductively defined type x_D
-(define-metafunction itt-ctxtL
+(define-metafunction imp-itt-ctxtL
   Δ-constructor-telescope : Δ x x -> Ξ
   [(Δ-constructor-telescope Δ x_D x_ci)
    Ξ
@@ -131,7 +133,7 @@
 
 ;; Returns the parameter arguments as an apply context of the constructor x_ci of the inductively
 ;; defined type x_D
-(define-metafunction itt-ctxtL
+(define-metafunction imp-itt-ctxtL
   Δ-constructor-parameters : Δ x x -> Θ
   [(Δ-constructor-parameters Δ x_D x_ci)
    Θ
@@ -139,7 +141,7 @@
      (Δ-ref-constructor-type Δ x_D x_ci))])
 
 ;; Inner loop for Δ-constructor-noninductive-telescope
-(define-metafunction itt-ctxtL
+(define-metafunction imp-itt-ctxtL
   noninductive-loop : x Φ -> Φ
   [(noninductive-loop x_D hole) hole]
   [(noninductive-loop x_D (Π (x : (in-hole Φ (in-hole Θ x_D))) Φ_1))
@@ -148,14 +150,14 @@
    (Π (x : t) (noninductive-loop x_D Φ_1))])
 
 ;; Returns the noninductive arguments to the constructor x_ci of the inductively defined type x_D
-(define-metafunction itt-ctxtL
+(define-metafunction imp-itt-ctxtL
   Δ-constructor-noninductive-telescope : Δ x x -> Ξ
   [(Δ-constructor-noninductive-telescope Δ x_D x_ci)
    (noninductive-loop x_D (Δ-constructor-telescope Δ x_D x_ci))])
 
 ;; Inner loop for Δ-constructor-inductive-telescope
 ;; NB: Depends on clause order
-(define-metafunction itt-ctxtL
+(define-metafunction imp-itt-ctxtL
   inductive-loop : x Φ -> Φ
   [(inductive-loop x_D hole) hole]
   [(inductive-loop x_D (Π (x : (in-hole Φ (in-hole Θ x_D))) Φ_1))
@@ -164,14 +166,14 @@
    (inductive-loop x_D Φ_1)])
 
 ;; Returns the inductive arguments to the constructor x_ci of the inducitvely defined type x_D
-(define-metafunction itt-ctxtL
+(define-metafunction imp-itt-ctxtL
   Δ-constructor-inductive-telescope : Δ x x -> Ξ
   [(Δ-constructor-inductive-telescope Δ x_D x_ci)
    (inductive-loop x_D (Δ-constructor-telescope Δ x_D x_ci))])
 
 ;; Returns the inductive hypotheses required for eliminating the inductively defined type x_D with
 ;; motive t_P, where the telescope Φ are the inductive arguments to a constructor for x_D
-(define-metafunction itt-ctxtL
+(define-metafunction imp-itt-ctxtL
   hypotheses-loop : x t Φ -> Φ
   [(hypotheses-loop x_D t_P hole) hole]
   [(hypotheses-loop x_D t_P (name any_0 (Π (x : (in-hole Φ (in-hole Θ x_D))) Φ_1)))
@@ -181,12 +183,12 @@
 
 ;; Returns the inductive hypotheses required for the elimination method of constructor x_ci for
 ;; inductive type x_D, when eliminating with motive t_P.
-(define-metafunction itt-ctxtL
+(define-metafunction imp-itt-ctxtL
   Δ-constructor-inductive-hypotheses : Δ x x t -> Ξ
   [(Δ-constructor-inductive-hypotheses Δ x_D x_ci t_P)
    (hypotheses-loop x_D t_P (Δ-constructor-inductive-telescope Δ x_D x_ci))])
 
-(define-metafunction itt-ctxtL
+(define-metafunction imp-itt-ctxtL
   Δ-constructor-method-telescope : Δ x x t -> Ξ
   [(Δ-constructor-method-telescope Δ x_D x_ci t_P)
    (Π (x_mi : (in-hole Ξ_a (in-hole Ξ_h ((in-hole Θ_p t_P) (Ξ-apply Ξ_a x_ci)))))
@@ -197,14 +199,14 @@
    (where x_mi ,(variable-not-in (term (t_P Δ)) 'x-mi))])
 
 ;; fold Ξ-compose over map Δ-constructor-method-telescope over the list of constructors
-(define-metafunction itt-ctxtL
+(define-metafunction imp-itt-ctxtL
   method-loop : Δ x t (x ...) -> Ξ
   [(method-loop Δ x_D t_P ()) hole]
   [(method-loop Δ x_D t_P (x_0 x_rest ...))
    (Ξ-compose (Δ-constructor-method-telescope Δ x_D x_0 t_P) (method-loop Δ x_D t_P (x_rest ...)))])
 
 ;; Returns the telescope of all methods required to eliminate the type x_D with motive t_P
-(define-metafunction itt-ctxtL
+(define-metafunction imp-itt-ctxtL
   Δ-methods-telescope : Δ x t -> Ξ
   [(Δ-methods-telescope Δ x_D t_P)
    (method-loop Δ x_D t_P (Δ-ref-constructors Δ x_D))])
@@ -229,7 +231,7 @@
 ;; Ξ_P*D is the telescope of the parameters of x_D and
 ;;       the witness of type x_D (applied to the parameters)
 ;; Ξ_m   is the telescope of the methods for x_D
-(define-metafunction itt-ctxtL
+(define-metafunction imp-itt-ctxtL
   Δ-elim-type : Δ x U -> t
   [(Δ-elim-type Δ x_D U)
    (Π (x_P : (in-hole Ξ_P*D U))
@@ -257,7 +259,7 @@
 ;; In more detaill, given motive t_P, parameters Θ_p, methods Θ_m, and arguments Θ_i to constructor
 ;; x_ci for x_D, for each inductively smaller term t_i of type (in-hole Θ_p x_D) inside Θ_i,
 ;; generate: (elim x_D U t_P  Θ_m ... Θ_p ... t_i)
-(define-metafunction itt-ctxtL
+(define-metafunction imp-itt-ctxtL
   Δ-inductive-elim : Δ x U t Θ Θ Θ -> Θ
   [(Δ-inductive-elim Δ x_D U t_P Θ_p Θ_m (in-hole Θ_i (hole (name t_i (in-hole Θ_r x_ci)))))
    ((Δ-inductive-elim Δ x_D U t_P Θ_p Θ_m Θ_i)
@@ -265,19 +267,19 @@
    (side-condition (memq (term x_ci) (term (Δ-ref-constructors Δ x_D))))]
   [(Δ-inductive-elim Δ x_D U t_P Θ_p Θ_m Θ_nr) hole])
 
-(define-extended-language itt-reduceL itt-ctxtL
+(define-extended-language imp-itt-reduceL imp-itt-ctxtL
   (C ::= hole (λ (x : C) e) (λ (x : e) C) (C e) (e C) (Π (x : C) e) (Π (x : e) C))
   ;; Can redex handle the nondeterminism?!
   #;(C ::= hole (λ (x : C) e) (λ (x : v) C) (C e) (v C) (Π (x : C) e) (Π (x : v) C))
   #;(v ::= (Type i)  (λ (x : v) v) (Π (x : v) v) c)
   #;(c ::= x (induction x (Type i)) (c v)))
 
-(define-metafunction itt-reduceL
+(define-metafunction imp-itt-reduceL
   [(subst e x_0 e_0)
-   ,(substitute itt-reduceL (term e) (term x_0) (term e_0))])
+   ,(substitute imp-itt-reduceL (term e) (term x_0) (term e_0))])
 
-(define itt-reduceR
-  (reduction-relation itt-reduceL
+(define imp-itt-reduceR
+  (reduction-relation imp-itt-reduceL
     (--> (Δ (in-hole C ((λ (x : t) e_0) e_1)))
          (Δ (in-hole C (subst e_0 x e_1))))
     (--> (Δ (in-hole C (in-hole Θ ((elim x_D U) v_P))))
@@ -320,6 +322,9 @@
 (define-judgment-form tt-reduceL
   #:mode (convert I I I)
   #:contract (convert Δ e e)
+
+  [-------------------------
+   (convert Δ Prop (Type 0))]
 
   [(side-condition ,(< (term i) (term j)))
    ---------------------------
@@ -407,6 +412,10 @@
    -----------------------------------
    (type-infer Δ Γ (Type i) (Type j))]
 
+  [(valid Δ Γ)
+   -------------------------------
+   (type-infer Δ Γ (Prop) (Type 0))]
+
   [(type-infer Δ (Γ x : t_0) e t)
    -------------------------------------------------
    (type-infer Δ Γ (λ (x : t_0) e) (Π (x : t_0) t))]
@@ -415,6 +424,10 @@
    (type-check Δ (Γ x : t_0) t (Type i))
    ------------------------------------------
    (type-infer Δ Γ (Π (x : t_0) t) (Type i))]
+
+  [(type-check Δ (Γ x : t_0) t Prop)
+   ------------------------------------------
+   (type-infer Δ Γ (Π (x : t_0) t) Prop)]
 
   [(type-infer Δ Γ e_0 (Π (x : t_1) t))
    (type-check Δ Γ e_1 t_1)
@@ -437,19 +450,19 @@
 
 ;;; --------------------------------------------------------------------------------------------------
 ;;; Auxillary defs. Not necessary for the type theory, but helpful for examples
-(define-metafunction itt-typingL
+(define-metafunction imp-itt-typingL
   Γ-build : (x : t) ... -> Γ
   [(Γ-build) ∅]
   [(Γ-build (x_r : t_r) ...  (x : t))
    ((Γ-build (x_r : t_r) ...) x : t)])
 
-(define-metafunction itt-typingL
+(define-metafunction imp-itt-typingL
   Δ-build : (x : t ((x : t) ...)) ... -> Δ
   [(Δ-build) ∅]
   [(Δ-build any_0 ... any)
    ((Δ-build any_0 ...) any)])
 
-(define-metafunction itt-typingL
+(define-metafunction imp-itt-typingL
   apply : e ... -> e
   [(apply e e_0 e_r ...)
    (apply (e e_0) e_r ...)]
